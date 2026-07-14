@@ -95,19 +95,24 @@ This setup consists of:
 ```mermaid
 graph TD
     subgraph Server Side
-        B(Nginx) -->|Sets REMOTE_USER header to alice<br/>Communicates via UDS| C(ConfigurableHTTPProxy)
-        C(ConfigurableHTTPProxy) <-->|Communicates via UDS| D(JupyterHub)
-        D(JupyterHub) -->|Spawns as user alice<br/>Provides API token| E(Single-User Notebook Server) -->|API requests to /hub/<br/>with API token|G
-        C -->|Proxies requests to| E
-        G(Nginx listening on UDS) -->|Proxies requests to<br/>|D
+        B(Nginx) -->|Sets REMOTE_USER header to alice<br/>Communicates via UDS| D(ConfigurableHTTPProxy)
+        D(ConfigurableHTTPProxy) <-->|Communicates via UDS| E(JupyterHub)
+        E(JupyterHub) -->|Spawns as user alice<br/>Provides API token| F(Single-User Notebook Server) -->|API requests to /hub/<br/>with API token|G
+        D -->|Proxies requests to| F
+        G(Nginx listening on UDS) -->|Proxies requests to<br/>|E
+    end
+
+    subgraph Authentication Server
+      B -->|Validates authentication| C(Authentication Server)
     end
 
     subgraph User Side
-        A(User Alice) -->|Authenticate| B(Nginx)
+        A(User Alice) -->|Authenticates| C
+        A(User Alice) -->|Connects| B
     end
 
     subgraph Impersonation Attempt
-        F(Impersonator Bob) -.->|Attempt to connect with `REMOTE_USER: alice`<br/>Blocked by UDS Permissions| C(ConfigurableHTTPProxy)
+        H(Impersonator Bob) -.->|Attempt to connect with `REMOTE_USER: alice`<br/>Blocked by UDS Permissions| D(ConfigurableHTTPProxy)
     end
 ```
 
