@@ -102,13 +102,14 @@ graph TD
         G(Nginx listening on UDS) -->|Proxies requests to<br/>|E
     end
 
-    subgraph Authentication Server
-      B -->|Validates authentication| C(Authentication Server)
+    subgraph User Side
+      A(User Alice) -->|Connects with token| B(Nginx)
     end
 
-    subgraph User Side
-        A(User Alice) -->|Authenticates| C
-        A(User Alice) -->|Connects| B
+    subgraph Authentication Server
+      A(User Alice) -->|Logs in| C(Authentication Server)
+      C-->|Provides token| A
+      B -->|Validates token| C(Authentication Server)
     end
 
     subgraph Impersonation Attempt
