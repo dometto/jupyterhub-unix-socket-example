@@ -70,6 +70,7 @@ c.JupyterHub.hub_connect_url = c.JupyterHub.hub_bind_url
 c.JupyterHub.bind_url = "http+unix://%2Frun%2Fjupyterhub%2Fchp.sock"
 c.JupyterHub.hub_socket_mode = 0o660 # Set file permissions for Hub sockets
 c.ConfigurableHTTPProxy.api_url = "http+unix://%2Frun%2Fjupyterhub%2Fchp-api.sock"
+c.ConfigurableHTTPProxy.command_umask = 0o007 # control CHP socket permisions using umask: mask no permissions for owner and group, mask all permissions for other. 0o007 is the default.
 
 # Configure the single-user (notebook) servers so that they connect to the Hub's API via the public endpoint (no REMOTE_USER auth).
 # See nginx.conf
