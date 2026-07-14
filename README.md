@@ -133,7 +133,7 @@ graph TD
 - **Communication between single-user servers and the Hub API**:
   - Single-user servers must be able to access the Hub's API. Since they are not able to access the main CHP and JupyterHub sockets, we define an additional public `nginx` endpoint (also on a UDS, `/run/jupyterhub_public/jupyterhub-api.sock`) that proxies to the Hub's API.
   - This endpoint does *not* use `REMOTE_USER` auth, so no risk of [impersonation](#threats-addressed).
-  - Instead, Hub API uses API tokens for authentication. These are provided to the single-user servers by the Hub.
+  - Instead, the Hub API uses tokens for authentication. These are provided to the single-user servers by the Hub at spawn-time.
 
 Note that some single-user servers will still be spawned on TCP ports (this is the case for standard notebook servers, e.g. -- applications that you add using https://jupyter-server-proxy.readthedocs.io/en/latest/ can be made to listen on UDS themselves). This is not a problem as they implement their own authentication mechanism (again via a token provided by the Hub).
  
