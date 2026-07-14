@@ -85,7 +85,10 @@ This setup consists of:
 - **ConfigurableHTTPProxy (CHP)**: Acts as the intermediary between Nginx and the JupyterHub backend.
 - **JupyterHub**: Manages user sessions and spawns single-user Jupyter Notebook servers.
 - **Unix Domain Sockets**: All communication between Nginx, CHP, and JupyterHub occurs via Unix domain sockets to enhance security by limiting socket accessibility to authorized users/groups only.
-- **`REMOTE_USER` Authentication**: Upstream authentication is handled externally, with the trusted `REMOTE_USER` header forwarded by Nginx.
+- **`REMOTE_USER` Authentication**:
+  - Authentication is outsourced by Nginx to an external authentication server, which provides a `REMOTE_USER` header with the user's username.
+  - Nginx validates the user's auth token, and forwards the `REMOTE_USER` header if succesful.
+  - [More about this auth pattern](https://github.com/cwaldbieser/jhub_remote_user_authenticator#architecture-and-security-recommendations), [dummy config example](https://github.com/dometto/jupyterhub-unix-socket-example/blob/main/nginx.conf#L24), [external example](https://dev.to/oktadev/use-nginx-to-add-authentication-to-any-application-4b1o).
 - **System Users and Groups**:
   - The setup ensures proper access control to Unix domain sockets using Linux users and groups:
     - `nginx` user: Runs the Nginx process and has read/write access to the CHP socket.
