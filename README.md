@@ -139,7 +139,7 @@ graph TD
 
 - **`alice`, `bob`:** Normal end users who spawn their single-user notebook servers as non-privileged processes under their own UIDs.
 - **`jupyter`:** Dedicated system user responsible for running JupyterHub and managing its Unix sockets.
-- **`nginx`:** Webserver user.
+- **`nginx`:** Webserver user. (`www-data` in the Vagrant example)
 - **Groups:** `alice` and `bob` are in a group for Hub users, `jupyterhub`. The Hub (`jupyter`) has permission to spawn single-user servers as any user in the group `jupyterhub` (using `SudoSpawner`). 
 
 ## Security Model
