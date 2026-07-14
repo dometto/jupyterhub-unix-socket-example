@@ -60,6 +60,23 @@ This setup consists of:
     - `jupyter` user: Runs the JupyterHub and CHP process and has read/write access to the JupyterHub and CHP sockets.
     - Single-user servers: Spawned with the individual user’s UID (`alice`, `bob`, etc.), and they only have access to specific resources assigned to them.
 
+```mermaid
+graph TD
+    subgraph Server Side
+        B(Nginx) -->|Set REMOTE_USER header to alice<br/>Communicates via UDS| C(ConfigurableHTTPProxy)
+        C(ConfigurableHTTPProxy) <-->|Communicates via UDS| D(JupyterHub)
+        D(JupyterHub) -->|Spawns as user alice| E(Single-User Notebook Server) -->|API Requests via UDS|D
+    end
+
+    subgraph User Side
+        A(User Alice) -->|Authenticate| B(Nginx)
+    end
+
+    subgraph Impersonation Attempt
+        F(Impersonator Bob) -.->|Attempt to connect with `REMOTE_USER: alice`<br/>Blocked by UDS Permissions| C(ConfigurableHTTPProxy)
+    end
+```
+
 ### Key Interaction Flows
 
 1. **User Authentication**:
@@ -68,7 +85,7 @@ This setup consists of:
 
 2. **Single-User Server Access**:
    - JupyterHub spawns single-user notebook servers for authenticated users.
-   - Single-user/notebook servers access the Hub API via a secure Unix domain socket, ensuring requests are authenticated using API tokens rather than `REMOTE_USER`.
+   - Single-user/notebook servers access the Hub API via a dedicated Unix Domain Socket, which requires API tokens rather than `REMOTE_USER` for auth.
 
 ### Configuration Highlights
 
