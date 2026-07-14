@@ -17,9 +17,9 @@ RUN addgroup -S jupyter && \
     adduser -D bob -G jupyterhub
 
 # Create /run/jupyterhub directory to save CHP and Hub sockets in
-# They must be readable and writeable by both nginx and jupyter
+# They must be readable and writeable by both nginx and jupyter.
 # We set the group to nginx and use setgid (chmod 02..) so that sockets created in this directory will have group nginx.
-# Also create /jupyterhub_public as a directory containing a socket to connect to JupyterHub's API, accessible by nginx and group jupyterhub
+# Also create /jupyterhub_public as a directory containing a socket to for single-user servers to connect to JupyterHub's API, accessible by nginx and group jupyterhub.
 RUN mkdir -p /run/jupyterhub && \
     chown jupyter:nginx /run/jupyterhub && \
     chmod 02770 /run/jupyterhub && \
