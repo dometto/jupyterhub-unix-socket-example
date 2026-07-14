@@ -2,6 +2,8 @@
 
 This repository demonstrates how to securely deploy JupyterHub behind Nginx using Unix Domain Sockets and `REMOTE_USER` authentication, [all on one host](#security-model). The setup leverages Nginx as a reverse proxy, ConfigurableHTTPProxy (CHP), and JupyterHub, prioritizing security in shared-use environments.
 
+This repository uses a specific commit-hash for JupyterHub. Ability to leverage UDS will be included in `JupyterHub>=6.0`.
+
 _Note_: While this setup is intended to illustrate the use of Unix Domain Sockets for security in a particular scenario, note that another usecase for UDS is simply their slight performance gains over TCP sockets (though I am not sure at what scale these would become meaningful).
 
 ## Who Should Run This?

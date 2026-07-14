@@ -43,7 +43,7 @@ RUN echo "jupyter ALL=(%jupyterhub)NOPASSWD: /opt/jupyterhub-venv/bin/sudospawne
 # Create and activate virtual environment, then install JupyterHub from Git
 RUN python3 -m venv $VENV_DIR && \
     $VENV_DIR/bin/pip install --upgrade pip && \
-    $VENV_DIR/bin/pip install git+https://github.com/dometto/jupyterhub.git@unix_socket_proxy && \
+    $VENV_DIR/bin/pip install git+https://github.com/jupyterhub/jupyterhub.git@d8735c479657947575678791f20171a9e7123166 && \
     $VENV_DIR/bin/pip install jhub-remote-user-authenticator==0.1.0 && \
     $VENV_DIR/bin/pip install sudospawner && \
     $VENV_DIR/bin/pip install jupyterlab
