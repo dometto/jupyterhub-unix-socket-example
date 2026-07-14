@@ -34,7 +34,7 @@ The Vagrant example is a bit closer to a production setup. It uses an example [A
    ```
 
 3. **Access JupyterHub**:
-   Open [http://localhost:8080](http://localhost:8080) in the browser. You will log in as the user `alice` (provided by the `REMOTE_USER` header set in `nginx.conf`).
+   Open [http://localhost:8080](http://localhost:8080) in the browser. You will be logged in as user `alice` (provided by the `REMOTE_USER` header set in `nginx.conf`).
 
 4. (*Optional*) **Test Permissions**:
    Run `docker exec -it jhub /test.sh` to verify normal users have the right permissions on the sockets.
@@ -58,7 +58,7 @@ Make sure the following are installed on your host machine:
    ```
 
 2. **Access JupyterHub**:
-   Open [http://localhost:8080](http://localhost:8080) in the browser.
+   Open [http://localhost:8080](http://localhost:8080) in the browser. You will be logged in as user `alice` (provided by the `REMOTE_USER` header set in `nginx.conf`).
 
 ---
 
