@@ -98,6 +98,7 @@ graph TD
         B(Nginx) -->|Set REMOTE_USER header to alice<br/>Communicates via UDS| C(ConfigurableHTTPProxy)
         C(ConfigurableHTTPProxy) <-->|Communicates via UDS| D(JupyterHub)
         D(JupyterHub) -->|Spawns as user alice| E(Single-User Notebook Server) -->|API Requests via UDS|D
+        C -->|Proxies requests to| E
     end
 
     subgraph User Side
