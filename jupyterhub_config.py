@@ -1,77 +1,86 @@
 from traitlets import Unicode
-
 from jupyterhub.handlers import LogoutHandler
 from jhub_remote_user_authenticator.remote_user_auth import RemoteUserLoginHandler, RemoteUserAuthenticator
-
 import os
 
-venv_dir = '/opt/jupyterhub-venv'
-jupyter_home = '/opt/jupyterhub'
+venv_dir = '/opt/jupyterhub-venv'  # Directory for the virtual Python environment
+jupyter_home = '/opt/jupyterhub'  # Base directory for JupyterHub's persistent files
 
-# REMOTE_USER auth config
+# Remote User Authentication
+# This setup authenticates users based on an external system, referenced by the REMOTE_USER environment header.
 class MyLogoutHandler(LogoutHandler):
-
-  async def render_logout_page(self):
-    logout_endpoint = self.authenticator.logout_endpoint
-
-    self.redirect(logout_endpoint)
+    """
+    Redirects users to a specific logout endpoint when logging out from JupyterHub.
+    """
+    async def render_logout_page(self):
+        logout_endpoint = self.authenticator.logout_endpoint
+        self.redirect(logout_endpoint)
 
 class MyAuthenticator(RemoteUserAuthenticator):
-  """
-  Accept the authenticated user from the header, based on an Remote_User
-  """
+    """
+    Authenticator for accepting pre-authenticated users provided via REMOTE_USER header.
+    Suitable for systems relying on an upstream identity provider.
+    """
+    logout_endpoint = Unicode(
+        default_value='/logout',
+        config=True,
+        help="""Logout URL where sessions are invalidated"""
+    )
 
-  logout_endpoint = Unicode(
-    default_value='/logout',
-    config=True,
-    help="""URL to log the user out and clean the session""")
-
-  def get_handlers(self, app):
-    return [
-      (r'/login', RemoteUserLoginHandler),
-      (r'/logout', MyLogoutHandler),
-    ]
+    def get_handlers(self, app):
+        return [
+            (r'/login', RemoteUserLoginHandler),
+            (r'/logout', MyLogoutHandler),
+        ]
 
 c.JupyterHub.authenticator_class = MyAuthenticator
-c.JupyterHub.shutdown_on_logout = True
 
+# Specify which HTTP header to parse during authentication
 c.AccessTokenAuthenticator.header_name = "REMOTE_USER"
 c.AccessTokenAuthenticator.logout_endpoint = "/logout"
 
-# Debug config
-
+# Debugging options to enable verbose logging
 import logging
 c.JupyterHub.log_level = logging.DEBUG
 c.ConfigurableHTTPProxy.debug = True
 
-# Spawner config
+# Custom Spawner Configurations
+c.JupyterHub.spawner_class = 'sudospawner.SudoSpawner'  # Allows launching user environments securely
+c.SudoSpawner.sudospawner_path = f'{venv_dir}/bin/sudospawner'  # Binary path for the SudoSpawner
 
-c.JupyterHub.spawner_class = 'sudospawner.SudoSpawner'
-c.SudoSpawner.sudospawner_path = f'{venv_dir}/bin/sudospawner'
-
-origin = "*" # can also be the specific URL of the JupyterHub proxy server (e.g. http://localhost:8080)
+# Allow cross-origin requests optionally and use UDS for comminication with kernels
+origin = "*"  # Allow all origins, can be restricted by specific instances
 c.Spawner.args = [
-  '--ServerApp.allow_origin={0}'.format(origin), # allow CORS from 'origin'
-  '--transport=ipc' # use unix sockets to communicate with kernels
+    '--ServerApp.allow_origin={0}'.format(origin),  # Additional security headers
+    '--transport=ipc'  # Communications via safe socket-based exchange
 ]
-c.Spawner.env_keep = ['JUPYTERHUB_ACTIVITY_URL', 'JUPYTERHUB_SERVER_NAME', 'JUPYTERHUB_API_URL', 'JUPYTERHUB_API_TOKEN', 'JUPYTERHUB_SERVICE_URL', 'JUPYTERHUB_SINGLEUSER_APP', 'JUPYTERHUB_USER', 'JUPYTERHUB_GROUP', 'PYTHONPATH', 'PATH', 'CONDA_ROOT', 'CONDA_DEFAULT_ENV']
 
-# Server config
-c.JupyterHub.hub_bind_url = f"http+unix://%2Frun%2Fjupyterhub%2Fjupyterhub.sock"
+# Specify essential system variables for a consistent user-server interaction lifecycle
+c.Spawner.env_keep = [
+    'JUPYTERHUB_ACTIVITY_URL', 'JUPYTERHUB_SERVER_NAME', 'JUPYTERHUB_API_URL',
+    'JUPYTERHUB_API_TOKEN', 'JUPYTERHUB_SERVICE_URL',
+    'JUPYTERHUB_SINGLEUSER_APP', 'JUPYTERHUB_USER', 'JUPYTERHUB_GROUP',
+    'PYTHONPATH', 'PATH', 'CONDA_ROOT', 'CONDA_DEFAULT_ENV'
+]
+
+# Server Binding Information
+# Hub listens and communicates over secure Unix sockets
+c.JupyterHub.hub_bind_url = "http+unix://%2Frun%2Fjupyterhub%2Fjupyterhub.sock"
 c.JupyterHub.hub_connect_url = c.JupyterHub.hub_bind_url
 c.JupyterHub.bind_url = "http+unix://%2Frun%2Fjupyterhub%2Fchp.sock"
-c.JupyterHub.hub_socket_mode = 0o660
+c.JupyterHub.hub_socket_mode = 0o660 # Set file permissions for Hub sockets
 c.ConfigurableHTTPProxy.api_url = "http+unix://%2Frun%2Fjupyterhub%2Fchp-api.sock"
 
-# We need to tell single-user servers that they need a special URL to connect to the Hub's API.
-# This is because the single-user server runs as a normal user, and does not have access to the Hub's socket (see nginx.conf).
+# Configure the single-user (notebook) servers so that they connect to the Hub's API via the public endpoint (no REMOTE_USER auth).
+# See nginx.conf
 c.Spawner.environment.update({
-  'JUPYTERHUB_API_URL': "http+unix://%2Fjupyterhub_public%2Fjupyterhub-api.sock/hub/api/",
-  'JUPYTERHUB_ACTIVITY_URL': lambda spawner : f"http+unix://%2Fjupyterhub_public%2Fjupyterhub-api.sock/hub/api/users/{spawner.user.name}/activity"
+    'JUPYTERHUB_API_URL': "http+unix://%2Fjupyterhub_public%2Fjupyterhub-api.sock/hub/api/",   # Unix-path specific for backend API
+    'JUPYTERHUB_ACTIVITY_URL': lambda spawner : f"http+unix://%2Fjupyterhub_public%2Fjupyterhub-api.sock/hub/api/users/{spawner.user.name}/activity"
 })
-c.JupyterHub.base_url = "/"
 
-# Configure paths for essential server files
+# General config
+c.JupyterHub.shutdown_on_logout = True
+c.JupyterHub.base_url = "/"
 c.JupyterHub.cookie_secret_file = f"{jupyter_home}/jupyterhub_cookie_secret"
 c.JupyterHub.db_url = f"sqlite://{jupyter_home}/jupyterhub.sqlite"
 c.ConfigurableHTTPProxy.pid_file = f"{jupyter_home}/jupyter-proxy.pid"
