@@ -1,29 +1,119 @@
-Secure Nginx -> ConfigurableHTTPProxy -> JupyterHub (with REMOTE_USER authentication) using Unix Domain Sockets
+# JupyterHub Deployment with Nginx and Unix Domain Sockets
 
-build with `docker build . -t jupyterhub-remote-unix-socket`
+This repository demonstrates how to securely deploy JupyterHub behind Nginx using Unix Domain Sockets and `REMOTE_USER` authentication, [all on one host](#security-model). The setup leverages Nginx as a reverse proxy, ConfigurableHTTPProxy (CHP), and JupyterHub, prioritizing security in shared-use environments.
 
-run with `docker run --name jhub --rm -p 8080:80 localhost/jupyterhub-remote-unix-socket:latest`
+_Note_: While this setup is intended to illustrate the use of Unix Domain Sockets for security in a particular scenario, note that another usecase for UDS is simply their slight performance gains over TCP sockets (though I am not sure at what scale these would become meaningful).
 
-Connect to http://localhost:8080 in your browser. You will be logged in as user `alice` on the Hub.
+## Who Should Run This?
 
-## Usecase
+This setup is intended for organizations that need to deploy JupyterHub *in a single VM* shared among multiple users, such as a research lab or in an classroom setting.
 
-This is a demonstration of how to run JupyterHub and ConfigurableHTTPProxy on Unix Domain Sockets, with Nginx proxying requests from outside to CHP. Nginx passes on a REMOTE_USER http header, which is assumed to orginate from a (trusted) upsteam authentication server.
+This setup is **not intended** for environments leveraging Kubernetes or other container orchestration solutions, which may provide better security conditions anyway.
 
-The rationale for this is to keep users (on this test container, `alice` and `bob`) from being able to spawn users as another user. This would be possible if JupyterHub or CHP were listening on TCP sockets, and if `alice` and `bob` have shell access to the machine. With Unix Domain Sockets, we prevent `alice` and `bob` from directly connecting to the sockets on which our servers run.
+At [Utrecht University](https://github.com/UtrechtUniversity/), this is used to provide Jupyter-based [Virtual Research Environments](https://utrechtuniversity.github.io/vre-docs/docs/workspaces/programming/vre-lab.html) for research groups and classrooms, hosted on [SURF ResearchCloud](https://www.surf.nl/en/services/compute/surf-research-cloud).
 
-So this is useful only when:
+## How to Deploy
 
-- running JupyterHub+Nginx on a VM with multiple users
-- spawning singleuser servers on the same VM (not e.g. as separate containers in a k8s cluster)
-- authentication and authorization are outsourced to an upstream auth server which passes on a REMOTE_USER header to Nginx
+This repo illustrates the setup explained below using a single Docker container. Note that this is only for purposes of illustration: in production, this setup only makes sense on a shared VM.
 
-So the threat model against which this guards is semi-trusted users working together on the same machine (e.g. members of a large research group, + students) being able to gain access to each others' data. If anyone has or gains root access to the machine, of course that person will be able to access all users' singleuser servers and data.
+1. **Build the Image**:
+   ```bash
+   docker build . -t jupyterhub-remote-unix-socket
+   ```
+2. **Run the Container**:
+   ```bash
+   docker run --name jhub --rm -p 8080:80 localhost/jupyterhub-remote-unix-socket:latest
+   ```
 
-We use `sudospawner` to prevent having to run `jupyterhub` as root.
+3. **Access JupyterHub**:
+   Open [http://localhost:8080](http://localhost:8080) in the browser. You will log in as the user `alice` (provided by the `REMOTE_USER` header set in `nginx.conf`).
 
-## Todo
+## Use Cases
 
-- Better explanation in this README>-
-- Add tests to prove that `alice` can't spawn a server as `bob`
-- In the nginx config for the public jupyterhub socket, make nginx only process requests to `/hub/api`.
+This setup is tailored for scenarios where:
+
+1. **Multi-User VMs**:
+   - JupyterHub and Nginx are hosted on the same Virtual Machine shared among multiple semi-trusted users.
+2. **Local Spawning**:
+   - Single-user notebook servers are spawned as local processes rather than containers or separate VMs.
+3. **Decoupled Authentication**:
+   - Authentication and authorization are handled by an upstream system, which passes `REMOTE_USER` to Nginx.
+
+### Why Unix Domain Sockets?
+
+Using Unix domain sockets instead of traditional TCP sockets prevents direct access to CHP or JupyterHub from semi-trusted users (`alice`, `bob`, etc.). This ensures users cannot [impersonate](#security-model) others or access sensitive endpoints.
+
+## Architecture Overview
+
+This setup consists of:
+
+- **Nginx**: The primary reverse proxy that routes HTTP traffic to ConfigurableHTTPProxy via Unix domain sockets. Nginx adds the trusted `REMOTE_USER` HTTP header for authentication.
+- **ConfigurableHTTPProxy (CHP)**: Acts as the intermediary between Nginx and the JupyterHub backend.
+- **JupyterHub**: Manages user sessions and spawns single-user Jupyter Notebook servers.
+- **Unix Domain Sockets**: All communication between Nginx, CHP, and JupyterHub occurs via Unix domain sockets to enhance security by limiting socket accessibility to authorized users/groups only.
+- **`REMOTE_USER` Authentication**: Upstream authentication is handled externally, with the trusted `REMOTE_USER` header forwarded by Nginx.
+- **System Users and Groups**:
+  - The setup ensures proper access control to Unix domain sockets using Linux users and groups:
+    - `nginx` user: Runs the Nginx process and has read/write access to the CHP socket.
+    - `jupyter` user: Runs the JupyterHub and CHP process and has read/write access to the JupyterHub and CHP sockets.
+    - Single-user servers: Spawned with the individual user’s UID (`alice`, `bob`, etc.), and they only have access to specific resources assigned to them.
+
+### Key Interaction Flows
+
+1. **User Authentication**:
+   - Users authenticate via an upstream trusted authentication server.
+   - Nginx proxies requests with the `REMOTE_USER` header set to the authenticated username to JupyterHub.
+
+2. **Single-User Server Access**:
+   - JupyterHub spawns single-user notebook servers for authenticated users.
+   - Single-user/notebook servers access the Hub API via a secure Unix domain socket, ensuring requests are authenticated using API tokens rather than `REMOTE_USER`.
+
+### Configuration Highlights
+
+- The Nginx configuration:
+  - Proxies user requests to CHP (`/run/jupyterhub/chp.sock`).
+  - Provides a public endpoint for single-user (notebook) servers to contact the Hub's API, authenticated via tokens.
+- **Communication between CHP and the Hub**:
+  - CHP communicates with JupyterHub through its Unix Domain Socket (`/run/jupyterhub/jupyterhub.sock`).
+  - JupyterHub communicates with CHP's API through Unix Domain Sockets (`/run/jupyterhub/chp-api.sock`).
+- **Access Control Settings**:
+  - Appropriate file permissions ensure that only the `nginx` and `jupyter` users can access the sockets while preventing unauthorized access by other users.
+- **Communication between single-user servers and the Hub API**:
+  - Via the public nginx endpoint (also on a UDS, `/run/jupyterhub_public/jupyterhub-api.sock`).
+  - This endpoint does *not* use `REMOTE_USER` auth, so no risk of [impersonation](#threats-addressed).
+  - So the public endpoint is accessible by all users.
+
+### Example Users and Groups
+
+- **`alice`, `bob`:** Normal end users who spawn their single-user notebook servers as non-privileged processes under their own UIDs.
+- **`jupyter`:** Dedicated system user responsible for running JupyterHub and managing its Unix sockets.
+- **`nginx`:** Webserver user.
+- **Groups:** `alice` and `bob` are in a group for Hub users, `jupyterhub`. The Hub (`jupyter`) has permission to spawn single-user servers as any user in the group `jupyterhub` (using `SudoSpawner`). 
+
+## Security Model
+
+Our setup assumes two constraints:
+
+- JupyterHub is run on the same VM on which single-user servers are spawned.
+- The hub relies on `REMOTE_USER` (trusted header) authentication.
+
+Given these constraints, with CHP or JupyterHub running on TCP sockets on localhost, any user on the system could hit CHP or the Hub with `curl -H "REMOTE_USER: bob" http://localhost:8000` and impersonate an arbitrary user.
+
+Unix domain sockets restrict communication to specific users and processes, offering a layer of security not present with TCP sockets. Permissions ensure only `nginx` and `jupyter` can interact with sockets at the appropriate levels.
+
+### Threats Addressed
+
+- **Inter-user Impersonation**:
+  Prevents semi-trusted users (e.g., researchers, students) from accessing each other's data or spawning Jupyter servers under another identity.
+
+### Threats Mitigated
+
+- **Remote code execution vulnerabilities in JupyterHub**: we use `SudoSpawner` to ensure the Hub does not need to run as `root`, mitigating some of the consequences of remote code execution vulnerabilities.
+
+### Exclusions
+
+- **System Administrator Access**:
+  Root users can override all permissions and access data from all users.
+- **Local Root Exploits**: same as above.
+- **Upstream Authentication**:
+  The setup assumes the upstream authentication server is trusted and secure.

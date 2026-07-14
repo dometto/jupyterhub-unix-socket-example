@@ -8,6 +8,7 @@ import os
 venv_dir = '/opt/jupyterhub-venv'
 jupyter_home = '/opt/jupyterhub'
 
+# REMOTE_USER auth config
 class MyLogoutHandler(LogoutHandler):
 
   async def render_logout_page(self):
@@ -37,7 +38,7 @@ c.JupyterHub.shutdown_on_logout = True
 c.AccessTokenAuthenticator.header_name = "REMOTE_USER"
 c.AccessTokenAuthenticator.logout_endpoint = "/logout"
 
-# Debug
+# Debug config
 
 import logging
 c.JupyterHub.log_level = logging.DEBUG
@@ -62,9 +63,11 @@ c.JupyterHub.bind_url = "http+unix://%2Frun%2Fjupyterhub%2Fchp.sock"
 c.JupyterHub.hub_socket_mode = 0o660
 c.ConfigurableHTTPProxy.api_url = "http+unix://%2Frun%2Fjupyterhub%2Fchp-api.sock"
 
+# We need to tell single-user servers that they need a special URL to connect to the Hub's API.
+# This is because the single-user server runs as a normal user, and does not have access to the Hub's socket (see nginx.conf).
 c.Spawner.environment.update({
-  'JUPYTERHUB_API_URL': "http+unix://%2Fjupyterhub_public%2Fjupyterhub_api.sock/hub/api/",
-  'JUPYTERHUB_ACTIVITY_URL': lambda spawner : f"http+unix://%2Fjupyterhub_public%2Fjupyterhub_api.sock/hub/api/users/{spawner.user.name}/activity"
+  'JUPYTERHUB_API_URL': "http+unix://%2Fjupyterhub_public%2Fjupyterhub-api.sock/hub/api/",
+  'JUPYTERHUB_ACTIVITY_URL': lambda spawner : f"http+unix://%2Fjupyterhub_public%2Fjupyterhub-api.sock/hub/api/users/{spawner.user.name}/activity"
 })
 c.JupyterHub.base_url = "/"
 
