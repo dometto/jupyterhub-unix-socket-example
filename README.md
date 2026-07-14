@@ -95,10 +95,11 @@ This setup consists of:
 ```mermaid
 graph TD
     subgraph Server Side
-        B(Nginx) -->|Set REMOTE_USER header to alice<br/>Communicates via UDS| C(ConfigurableHTTPProxy)
+        B(Nginx) -->|Sets REMOTE_USER header to alice<br/>Communicates via UDS| C(ConfigurableHTTPProxy)
         C(ConfigurableHTTPProxy) <-->|Communicates via UDS| D(JupyterHub)
-        D(JupyterHub) -->|Spawns as user alice| E(Single-User Notebook Server) -->|API Requests via UDS|D
+        D(JupyterHub) -->|Spawns as user alice<br/>Provides API token| E(Single-User Notebook Server) -->|API requests to /hub/<br/>with API token|G
         C -->|Proxies requests to| E
+        G(Nginx listening on UDS) -->|Proxies requests to<br/>|D
     end
 
     subgraph User Side
