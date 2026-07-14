@@ -16,7 +16,13 @@ At [Utrecht University](https://github.com/UtrechtUniversity/), this is used to 
 
 ## How to Deploy
 
-This repo illustrates the setup explained below using a single Docker container. Note that this is only for purposes of illustration: in production, this setup only makes sense on a shared VM.
+This repo illustrates the setup explained below using a single Docker container, or alternatively, a Vagrant-provisioned VM.
+
+The Docker example is faster and simpler, but since this setup really only makes sense in shared-VM setting, it is a purely illustrative.
+
+The Vagrant example is a bit closer to a production setup. It uses an example [Ansible playbook](./ansible-playbook.yml) to provision a virtual machine.
+
+### Option 1: Deploy with Docker
 
 1. **Build the Image**:
    ```bash
@@ -32,6 +38,29 @@ This repo illustrates the setup explained below using a single Docker container.
 
 4. (*Optional*) **Test Permissions**:
    Run `docker exec -it jhub /test.sh` to verify normal users have the right permissions on the sockets.
+
+### Option 2: Deploy with Vagrant
+
+To run this example using Vagrant:
+
+#### Dependencies
+Make sure the following are installed on your host machine:
+
+- [VirtualBox](https://www.virtualbox.org/)
+- [Vagrant](https://www.vagrantup.com/)
+- Ansible (Vagrant will use it to provision the VM)
+
+#### Steps
+
+1. **Start the VM**:
+   ```bash
+   vagrant up
+   ```
+
+2. **Access JupyterHub**:
+   Open [http://localhost:8080](http://localhost:8080) in the browser.
+
+---
 
 ## Use Cases
 

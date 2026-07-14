@@ -1,0 +1,187 @@
+---
+- name: Setup JupyterHub deployment
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars:
+    jupyter_home: "/opt/jupyterhub"
+    venv_dir: "/opt/jupyterhub-venv"
+    jupyterhub_config: "/opt/jupyterhub/jupyterhub_config.py"
+    arch: "{{ (ansible_facts['architecture'] == 'x86_64') | ternary('amd64', 'arm64') }}" # for getting the right apt repo. only 64 bit
+      
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - python3
+          - python3-pip
+          - python3-virtualenv
+          - python3-venv
+          - git
+          - sudo
+          - nginx
+        update_cache: true
+        state: present
+
+    - name: Install node from nodesource
+      block:
+        - name: Download nodesource key
+          ansible.builtin.get_url:
+            url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+            dest: /usr/share/keyrings/nodesource.asc
+            mode: "0644"
+
+        - name: Add nodesource repository for apt package manager
+          ansible.builtin.apt_repository:
+            repo: deb [arch={{ arch }}, signed-by=/usr/share/keyrings/nodesource.asc] https://deb.nodesource.com/node_20.x nodistro main
+            state: present
+            filename: nodesource
+
+        - name: Set preferences
+          ansible.builtin.copy:
+            dest: /etc/apt/preferences.d/nodejs
+            content: >
+              Package: nodejs
+              Pin: origin deb.nodesource.com"
+              Pin-Priority: 600
+            owner: root
+            group: root
+            mode: "0644"
+
+        - name: Install NodeJS
+          ansible.builtin.apt:
+            name:
+              - nodejs
+            state: present
+            update_cache: true
+
+    - name: Add groups
+      ansible.builtin.group:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - jupyterhub
+        - jupyter
+
+    - name: Add users
+      ansible.builtin.user:
+        name: "{{ item.name }}"
+        group: "{{ item.group }}"
+        shell: /bin/bash
+        create_home: true
+        state: present
+      loop:
+        - { name: "jupyter", group: "jupyter" }
+        - { name: "alice", group: "jupyterhub" }
+        - { name: "bob", group: "jupyterhub" }
+
+    - name: Create directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - { path: "/run/jupyterhub", owner: "jupyter", group: "www-data", mode: "02770" }
+        - { path: "/jupyterhub_public", owner: "www-data", group: "jupyterhub", mode: "02770" }
+        - { path: "{{ jupyter_home }}", owner: "jupyter", group: "jupyter", mode: "0755" }
+
+    - name: Update sudoers for sudospawner
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers.d/allow-jupyter-jupyterhub
+        create: true
+        state: present
+        line: "jupyter ALL=(%jupyterhub)NOPASSWD: {{ venv_dir }}/bin/sudospawner"
+        mode: "0440"
+
+    - name: Install Python packages
+      ansible.builtin.pip:
+        virtualenv: "{{ venv_dir }}"
+        name:
+          - git+https://github.com/jupyterhub/jupyterhub.git@d8735c479657947575678791f20171a9e7123166
+          - jhub-remote-user-authenticator==0.1.0
+          - sudospawner
+          - jupyterlab
+
+    - name: Ensure normal users can't modify venv
+      ansible.builtin.file:
+        path: "{{ venv_dir }}"
+        state: directory
+        owner: "jupyter"
+        group: "jupyterhub"
+        mode: "g-w,o-w"
+        recurse: true
+
+    - name: Install configurable-http-proxy
+      ansible.builtin.command:
+        argv:
+          - npm
+          - install
+          - -g
+          - configurable-http-proxy
+
+    - name: Copy nginx configuration
+      ansible.builtin.copy:
+        src: ./nginx.conf
+        dest: /etc/nginx/conf.d/jupyterhub.conf
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Remove default nginx sites
+      ansible.builtin.file:
+        path: "{{ item }}" 
+        state: absent
+      with_items:
+        - /etc/nginx/sites-available
+        - /etc/nginx/sites-enabled
+
+    - name: Ensure nginx service is running
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
+        enabled: true
+
+    - name: Copy JupyterHub configuration
+      ansible.builtin.copy:
+        src: ./jupyterhub_config.py
+        dest: "{{ jupyterhub_config }}"
+
+    - name: Configure systemd unit for JupyterHub
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/jupyterhub.service
+        content: |
+          [Unit]
+          Description=JupyterHub
+          After=network.target
+
+          [Service]
+          User=jupyter
+          ExecStart={{ venv_dir }}/bin/jupyterhub --config {{ jupyterhub_config }}
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Start JupyterHub service
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: jupyterhub
+        state: started
+        enabled: true
+
+    - name: Ensure normal users cannot read the sockets
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: "0660"
+        owner: "jupyter"
+        group: "nginx"
+      register: check_permissions
+      check_mode: true
+      failed_when: check_permissions.changed
+      with_items:
+        - /run/jupyterhub/jupyterhub.sock
+        - /run/jupyterhub/chp.sock
+        - /run/jupyterhub/chp-api.sock
