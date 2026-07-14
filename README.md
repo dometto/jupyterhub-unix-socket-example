@@ -151,7 +151,7 @@ Our setup assumes two constraints:
 - JupyterHub is run on the same VM on which single-user servers are spawned.
 - The hub relies on `REMOTE_USER` (trusted header) authentication.
 
-Given these constraints, with CHP or JupyterHub running on TCP sockets on localhost, any user on the system could hit CHP or the Hub with `curl -H "REMOTE_USER: bob" http://localhost:8000` and impersonate an arbitrary user.
+Given these constraints, with CHP or JupyterHub running on TCP sockets on localhost, any user on the system (e.g. `bob`) could hit CHP or the Hub with `curl -H "REMOTE_USER: alice" http://localhost:8000` and impersonate an arbitrary user.
 
 Unix domain sockets restrict communication to specific users and processes, offering a layer of security not present with TCP sockets. Permissions ensure only `nginx` and `jupyter` can interact with sockets at the appropriate levels.
 
