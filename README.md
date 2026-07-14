@@ -131,10 +131,12 @@ graph TD
 - **Access Control Settings**:
   - Appropriate file permissions ensure that only the `nginx` and `jupyter` users can access the sockets while preventing unauthorized access by other users.
 - **Communication between single-user servers and the Hub API**:
-  - Via the public nginx endpoint (also on a UDS, `/run/jupyterhub_public/jupyterhub-api.sock`).
+  - Single-user servers must be able to access the Hub's API. Since they are not able to access the main CHP and JupyterHub sockets, we define an additional public `nginx` endpoint (also on a UDS, `/run/jupyterhub_public/jupyterhub-api.sock`) that proxies to the Hub's API.
   - This endpoint does *not* use `REMOTE_USER` auth, so no risk of [impersonation](#threats-addressed).
-  - So the public endpoint is accessible by all users.
+  - Instead, Hub API uses API tokens for authentication. These are provided to the single-user servers by the Hub.
 
+Note that some single-user servers will still be spawned on TCP ports (this is the case for standard notebook servers, e.g. -- applications that you add using https://jupyter-server-proxy.readthedocs.io/en/latest/ can be made to listen on UDS themselves). This is not a problem as they implement their own authentication mechanism (again via a token provided by the Hub).
+ 
 ### Example Users and Groups
 
 - **`alice`, `bob`:** Normal end users who spawn their single-user notebook servers as non-privileged processes under their own UIDs.
@@ -167,5 +169,7 @@ Unix domain sockets restrict communication to specific users and processes, offe
 - **System Administrator Access**:
   Root users can override all permissions and access data from all users.
 - **Local Root Exploits**: same as above.
+- **Attacks on single-user servers**:
+  If a spawned single-user server listens on a TCP port, it can still be connected to from `localhost`. Any vulnerabilities in the single-user server authentication mechanism (provided by `jupyterhub`) are not mitigated by this setup.
 - **Upstream Authentication**:
   The setup assumes the upstream authentication server is trusted and secure.
