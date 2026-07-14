@@ -30,6 +30,9 @@ This repo illustrates the setup explained below using a single Docker container.
 3. **Access JupyterHub**:
    Open [http://localhost:8080](http://localhost:8080) in the browser. You will log in as the user `alice` (provided by the `REMOTE_USER` header set in `nginx.conf`).
 
+4. (*Optional*) **Test Permissions**:
+   Run `docker exec -it jhub /test.sh` to verify normal users have the right permissions on the sockets.
+
 ## Use Cases
 
 This setup is tailored for scenarios where:

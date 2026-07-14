@@ -57,7 +57,11 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy a placeholder custom JupyterHub configuration, can be overridden
 COPY jupyterhub_config.py $JUPYTERHUB_CONFIG
 
+# Copy a test script to test UDS permissions
+COPY test.sh /test.sh
+
 COPY entrypoint.sh /entrypoint.sh
+
 
 # Expose port 80
 EXPOSE 80
