@@ -84,8 +84,8 @@
         group: "{{ item.group }}"
         mode: "{{ item.mode }}"
       loop:
-        - { path: "/run/jupyterhub", owner: "jupyter", group: "www-data", mode: "02770" }
-        - { path: "/jupyterhub_public", owner: "www-data", group: "jupyterhub", mode: "02770" }
+        - { path: "/run/jupyterhub", owner: "jupyter", group: "www-data", mode: "02760" }
+        - { path: "/jupyterhub_public", owner: "www-data", group: "jupyterhub", mode: "02760" }
         - { path: "{{ jupyter_home }}", owner: "jupyter", group: "jupyter", mode: "0755" }
 
     - name: Update sudoers for sudospawner
