@@ -22,10 +22,10 @@ RUN addgroup -S jupyter && \
 # Also create /jupyterhub_public as a directory containing a socket to for single-user servers to connect to JupyterHub's API, accessible by nginx and group jupyterhub.
 RUN mkdir -p /run/jupyterhub && \
     chown jupyter:nginx /run/jupyterhub && \
-    chmod 02760 /run/jupyterhub && \
+    chmod 02770 /run/jupyterhub && \
     mkdir /jupyterhub_public && \
     chown nginx:jupyterhub /jupyterhub_public && \
-    chmod 02760 /jupyterhub_public
+    chmod 02770 /jupyterhub_public
 
 # Install required packages
 RUN apk add --no-cache \
