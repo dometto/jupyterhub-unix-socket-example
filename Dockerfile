@@ -20,12 +20,13 @@ RUN addgroup -S jupyter && \
 # They must be readable and writeable by both nginx and jupyter.
 # We set the group to nginx and use setgid (chmod 02..) so that sockets created in this directory will have group nginx.
 # Also create /jupyterhub_public as a directory containing a socket to for single-user servers to connect to JupyterHub's API, accessible by nginx and group jupyterhub.
+# We also set the sticky bit so that group jupyterhub cannot delete the socket.
 RUN mkdir -p /run/jupyterhub && \
     chown jupyter:nginx /run/jupyterhub && \
     chmod 02770 /run/jupyterhub && \
     mkdir /jupyterhub_public && \
     chown nginx:jupyterhub /jupyterhub_public && \
-    chmod 02770 /jupyterhub_public
+    chmod 03770 /jupyterhub_public
 
 # Install required packages
 RUN apk add --no-cache \
