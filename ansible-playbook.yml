@@ -8,6 +8,8 @@
     jupyter_home: "/opt/jupyterhub"
     venv_dir: "/opt/jupyterhub-venv"
     jupyterhub_config: "/opt/jupyterhub/jupyterhub_config.py"
+    jupyterhub_rundir: "/opt/jupyterhub_run"
+    jupyterhub_public_rundir: "/opt/jupyterhub_public_run"
     arch: "{{ (ansible_facts['architecture'] == 'x86_64') | ternary('amd64', 'arm64') }}" # for getting the right apt repo. only 64 bit
       
   tasks:
@@ -160,10 +162,12 @@
           [Service]
           User=jupyter
           ExecStart={{ venv_dir }}/bin/jupyterhub --config {{ jupyterhub_config }}
+          ExecStartPre=+/usr/bin/rm -f {{ jupyterhub_public_rundir }}/jupyterhub-api.sock
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
+          WantedBy=nginx.service
 
     - name: Start JupyterHub service
       ansible.builtin.systemd:
@@ -182,6 +186,6 @@
       check_mode: true
       failed_when: check_permissions.changed
       with_items:
-        - /run/jupyterhub/jupyterhub.sock
-        - /run/jupyterhub/chp.sock
-        - /run/jupyterhub/chp-api.sock
+        - "{{ jupyterhub_rundir }}/jupyterhub.sock"
+        - "{{ jupyterhub_rundir }}/jupyterhub/chp.sock"
+        - "{{ jupyterhub_rundir }}/jupyterhub/chp-api.sock"
