@@ -162,7 +162,8 @@
           [Service]
           User=jupyter
           ExecStart={{ venv_dir }}/bin/jupyterhub --config {{ jupyterhub_config }}
-          ExecStartPre=+/usr/bin/rm -f {{ jupyterhub_public_rundir }}/jupyterhub-api.sock
+          RuntimeDirectory={{ jupyterhub_rundir }}
+          ExecStartPre=+-/usr/bin/rm -f {{ jupyterhub_public_rundir }}/jupyterhub-api.sock
           Restart=always
 
           [Install]
